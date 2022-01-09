@@ -12,14 +12,15 @@ ll2grid <- function(lat_lon, grid_squares){
            filter(grid_x==lon,grid_y==lat) %>%
            pull(grid_num))
 }
-grid2ll <- function(grid_num, grid_squares){
-  x <- grid_num
-  ll <- grid_squares %>% filter(grid_num == x)
-  return(c(ll$grid_y,ll$grid_x))
+grid2ll <- function(grid_nums, hdat){
+  ll <- hdat %>%
+    select(grid_num, grid_x, grid_y) %>%
+    filter(grid_num %in% grid_nums) %>%
+    distinct()
+  return(list(ll$grid_y,ll$grid_x))
 }
-grid2ll2 <- function(grid_num, grid_squares){
-  x <- grid_num
-  return(grid2ll(x, grid)+degs/2)
+grid2ll2 <- function(grid_nums, grid_squares){
+  return(grid2ll(grid_nums, grid)+degs/2)
 }
 
 get_data <- function(basin, degs=1){
@@ -31,7 +32,6 @@ get_data <- function(basin, degs=1){
            hours_past = difftime(DateTime,mindate,units="hours"),
            step = as.numeric(hours_past)/6)
   print("Converting to grid...")
-  degs <- 1
   floor_to <- function(x, n) n*floor(x/n)
   # Create grid squares
   hdat <- hdat %>% group_by(Key) %>%
@@ -49,16 +49,15 @@ get_data <- function(basin, degs=1){
     select(!Freq)
   # Assign the grid square numbers
   hdat <- hdat %>%
+    ungroup() %>%
     mutate(grid_key = paste0(grid_x,"+",grid_y)) %>%
-    left_join(grid_squares,by="grid_key") %>%
-    mutate(kg = paste0(Key,"_",grid_num))
-  hobj <- c(hdat, grid_squares)
-  names(hobj) <- c("hdat", "grid_squares")
-  return(hobj)
+    left_join(grid_squares %>% select(grid_key, grid_num),by="grid_key") %>%
+    mutate(kg = paste0(Key,"_",grid_num)) %>%
+    mutate(grid_num = as.numeric(grid_num))
+  return(hdat)
 }
 
-gen_mchain <- function(hobj, do_filter=TRUE){
-  hdat <- hobj$hdat
+gen_mchain <- function(hdat, do_filter=TRUE){
   hdat <- hdat %>% ungroup()
   h2 <- hdat %>%
     mutate(time_key = paste0(Key,"_",step+1)) %>%
@@ -99,16 +98,16 @@ gen_mchain <- function(hobj, do_filter=TRUE){
 }
 
 # Function to get track from a hurricane data frame
-get_track <- function(hobj, key){
-  track <- hobj$hdat %>%
+get_track <- function(key, hdat){
+  track <- hdat %>%
     filter(Key == key) %>%
     arrange(hours_past) %>%
     select(Lat, Lon)
   return(track)
 }
 
-gen_track <- function(s_df, hobj){
-  grid_squares <- hobj$grid_squares
+# TODO: Make this run multiple (have an N parameter)
+gen_track <- function(s_df, hdat){
   # Variables to keep track of hurricane simulation process
   end = FALSE
   grid_pos <- 0
@@ -128,8 +127,9 @@ gen_track <- function(s_df, hobj){
   }
   # Convert path to coord DF
   # Use grid2ll2 to get center of degree square, not just edge
-  path_df <- as.data.frame(do.call("rbind",lapply(path, grid2ll2)))
+  path_df <- as.data.frame(grid2ll2(x,hdat))
   names(path_df) <- c("Lat","Lon")
+  # If the path is long enough, smooth it using a moving average (ma())
   if(nrow(path_df) > 5 && ord > 0){
     path_df <- as.data.frame(ma(path_df,order=ord,centre=TRUE)) %>% drop_na()
     names(path_df) <- c("Lat","Lon")
@@ -175,7 +175,7 @@ do_graph <- function(N=20, seed=0, ord=2, basin="AL", hdat=NA, year=NA){
       unique() %>%
       pull(Key)
     for(key in keys){
-      graph <- graph + geom_path(data=get_track(key),
+      graph <- graph + geom_path(data=get_track(key,hdat),
                                  aes(x=Lon,y=Lat),col="red",
                                  arrow=arrow(type="closed",
                                              length=unit(2,"mm"),
