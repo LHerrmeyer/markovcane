@@ -432,7 +432,13 @@ do_graph <- function(path_df, basin, hdat=NULL, year=2010){
                                          angle=15))
   # Add title and subtitle to plot
   fmt_str <- "Simulated (blue) vs real year %s (red) paths"
-  graph <- graph + labs(title=sprintf(fmt_str,year))
+  # Don't add info about simulated year if it does not exist
+  if(!is.null(hdat)){
+    graph <- graph + labs(title=sprintf(fmt_str,year))
+  }
+  else{
+    graph <- graph + labs(title="Simulated paths")
+  }
   # Return the plot object
   return(graph)
 }
