@@ -7,9 +7,9 @@
 - Add way to download NHC HURDAT data
 - Add graphing capabilities
 - Add adjustable resolution
+- Write in functional style
 
 ### Not Done
-- Write in functional style (no global vars, or just default to global vars)
 - Add docstrings
 - Remove unneeded libs
 - Comment and code more
