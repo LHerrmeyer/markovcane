@@ -1,7 +1,7 @@
 # Load in libraries
 #devtools::install_github("https://github.com/timtrice/HURDAT")
 library(pacman)
-pacman::p_load(tidyverse, HURDAT, forecast, docstring)
+pacman::p_load(tidyverse, HURDAT, forecast, docstring, zoo)
 
 # Create helper functions for grid squares
 
@@ -206,6 +206,7 @@ gen_mchain <- function(hdat){
   # Copy the hurricane dataset, and join it on itself shifted by one
   # timestep forward (6 hours for the NOAA datasets), to get the current grid
   # position for each storm and the next grid position.
+  # The time_key includes the key (storm identifier) and the steps since genesis.
   h2 <- hdat %>%
     mutate(time_key = paste0(Key,"_",step+1)) %>%
     left_join(hdat %>%
