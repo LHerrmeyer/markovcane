@@ -207,6 +207,8 @@ gen_mchain <- function(hdat){
   # timestep forward (6 hours for the NOAA datasets), to get the current grid
   # position for each storm and the next grid position.
   # The time_key includes the key (storm identifier) and the steps since genesis.
+  # The time_key uniquely identifies an individual storm at a specific time step
+  # (which time steps are every 6 hours in the HURDAT dataset)
   h2 <- hdat %>%
     mutate(time_key = paste0(Key,"_",step+1)) %>%
     left_join(hdat %>%
